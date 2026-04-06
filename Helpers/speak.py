@@ -48,10 +48,12 @@ def play_audio(file_path):
         pygame.mixer.music.load(file_path)
         pygame.mixer.music.play()
         while pygame.mixer.music.get_busy():
-            pygame.time.get_ticks(10)
-            pygame.quit()
+            pygame.time.wait(2)
+        pygame.mixer.music.unload()
     except Exception as e:
         print(f"Error playing audio: {e}")
+    finally:
+        pygame.quit()
     
 def speak(text, file_path=None):
     if file_path is None:
@@ -60,4 +62,7 @@ def speak(text, file_path=None):
     asyncio.set_event_loop(loop)
     loop.run_until_complete(generate_speech(text, file_path))
     
-speak("Hii, how are you?")
+speak("Hi, how are you?")
+speak("Hi, how are you?")
+speak("Hi, how are you?")
+speak("Hi, how are you?")
