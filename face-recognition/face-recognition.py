@@ -5,7 +5,7 @@ import pickle
 
 def train_face_recognizer():
     # Path to the images folder
-    data_path = 'img'
+    data_path = os.path.join(os.path.dirname(__file__), 'img')
     if not os.path.exists(data_path):
         print(f"Error: '{data_path}' folder not found. Please create the 'img' folder with subfolders for each person containing their images.")
         return
@@ -71,7 +71,10 @@ def train_face_recognizer():
     else:
         # No subfolders, treat all images as one person
         print("No subfolders found. Treating all images in 'img' as one person.")
-        label_dict['person'] = 0
+        person_name = input("Enter the name for the person: ").strip()
+        if not person_name:
+            person_name = 'person'
+        label_dict[person_name] = 0
         image_count = 0
         face_count = 0
         for image_name in os.listdir(data_path):

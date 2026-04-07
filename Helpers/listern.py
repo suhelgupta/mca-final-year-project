@@ -5,7 +5,7 @@
 import speech_recognition as sr           # pip install SpeechRecognition
 import os
 import threading
-from mtranslate import translate          # pip install mtranslate
+# from mtranslate import translate          # pip install mtranslate
 from colorama import Fore, Style, init    # pip install colorama
 
 init(autoreset=True)  # Automatically reset styles after each print
@@ -17,9 +17,9 @@ def print_loop():                                   # For Printing In loop
         print(Style.RESET_ALL, end='', flush=True)
         print("", end='', flush=True)
 
-def translation_hin_to_eng(text):                   # translate the text in to hindi to english
-    english_translation = translate(text, 'en-in')
-    return english_translation
+# def translation_hin_to_eng(text):                   # translate the text in to hindi to english
+#     english_translation = translate(text, 'en-in')
+#     return english_translation
 
 def listen():                             # listen function
     recognizer = sr.Recognizer()
@@ -42,9 +42,9 @@ def listen():                             # listen function
                 print("\r" + Fore.YELLOW + "Recognizing...   ", end='', flush=True)
                 recognized_text = recognizer.recognize_google(audio).lower()
                 if recognized_text:
-                    translated_text = translation_hin_to_eng(recognized_text)
-                    print("\r" + Fore.CYAN + "Mr.Stank: " + translated_text)
-                    return translated_text
+                    # translated_text = translation_hin_to_eng(recognized_text)
+                    print("\r" + Fore.CYAN + "Mr.Stank: " + recognized_text)
+                    return recognized_text
                 else:
                     return ""
             except sr.UnknownValueError:

@@ -8,7 +8,7 @@ from check_user import check_user
 
 if __name__ == "__main__":
     print("Checking user authentication...")
-    if check_user():
+    if check_user(True):
         print("User recognized. Access granted.")
         # Add your main application code here
         print("Welcome to the application!")

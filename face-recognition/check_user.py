@@ -3,7 +3,7 @@ import pickle
 import time
 import os
 
-def check_user() -> bool:
+def check_user(open_camera=False) -> bool:
     script_dir = os.path.dirname(os.path.abspath(__file__))
     model_path = os.path.join(script_dir, 'face_recognizer.yml')
     labels_path = os.path.join(script_dir, 'labels.pkl')
@@ -60,9 +60,11 @@ def check_user() -> bool:
             # Predict
             label, confidence = recognizer.predict(face)
 
+            print(f"Predicted label: {label}, confidence: {confidence}", flush=True)  # Debug print
+
             # Draw rectangle and label
             cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
-            if confidence < 50:  # Adjust threshold as needed
+            if confidence < 90:  # Adjust threshold as needed
                 name = name_dict.get(label, "Unknown")
                 cv2.putText(frame, f"{name} ({confidence:.2f})", (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
                 if label in name_dict:
@@ -72,7 +74,8 @@ def check_user() -> bool:
             else:
                 cv2.putText(frame, "Unknown", (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
 
-        cv2.imshow('Face Recognition', frame)
+        if open_camera:
+            cv2.imshow('Face Recognition', frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
