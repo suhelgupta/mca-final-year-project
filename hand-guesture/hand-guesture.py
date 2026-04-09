@@ -6,8 +6,12 @@ import util
 from pynput.mouse import Button, Controller
 mouse = Controller()
 
+pyautogui.FAILSAFE = False
+pyautogui.PAUSE = 0
 
 screen_width, screen_height = pyautogui.size()
+MOVEMENT_SMOOTHING = 0.28
+prev_screen_pos = None
 
 mpHands = mp.solutions.hands
 hands = mpHands.Hands(
@@ -22,16 +26,30 @@ hands = mpHands.Hands(
 def find_finger_tip(processed):
     if processed.multi_hand_landmarks:
         hand_landmarks = processed.multi_hand_landmarks[0]  # Assuming only one hand is detected
-        index_finger_tip = hand_landmarks.landmark[mpHands.HandLandmark.INDEX_FINGER_TIP]
-        return index_finger_tip
-    return None, None
+        return hand_landmarks.landmark[mpHands.HandLandmark.INDEX_FINGER_TIP]
+    return None
 
 
 def move_mouse(index_finger_tip):
-    if index_finger_tip is not None:
-        x = int(index_finger_tip.x * screen_width)
-        y = int(index_finger_tip.y / 2 * screen_height)
-        pyautogui.moveTo(x, y)
+    global prev_screen_pos
+
+    if index_finger_tip is None:
+        prev_screen_pos = None
+        return
+
+    target_x = int(index_finger_tip.x * screen_width)
+    target_y = int(index_finger_tip.y * screen_height)
+    if prev_screen_pos is None:
+        dest_x, dest_y = target_x, target_y
+    else:
+        prev_x, prev_y = prev_screen_pos
+        dest_x = int(prev_x * (1 - MOVEMENT_SMOOTHING) + target_x * MOVEMENT_SMOOTHING)
+        dest_y = int(prev_y * (1 - MOVEMENT_SMOOTHING) + target_y * MOVEMENT_SMOOTHING)
+
+    dest_x = max(1, min(screen_width - 2, dest_x))
+    dest_y = max(1, min(screen_height - 2, dest_y))
+    pyautogui.moveTo(dest_x, dest_y)
+    prev_screen_pos = (dest_x, dest_y)
 
 
 def is_left_click(landmark_list, thumb_index_dist):
@@ -66,6 +84,10 @@ def is_screenshot(landmark_list, thumb_index_dist):
     )
 
 
+def is_index_extended(landmark_list):
+    return util.get_angle(landmark_list[5], landmark_list[6], landmark_list[8]) > 150
+
+
 def detect_gesture(frame, landmark_list, processed):
     if len(landmark_list) >= 21:
 
@@ -74,7 +96,7 @@ def detect_gesture(frame, landmark_list, processed):
 
         if util.get_distance([landmark_list[4], landmark_list[5]]) < 50  and util.get_angle(landmark_list[5], landmark_list[6], landmark_list[8]) > 90:
             move_mouse(index_finger_tip)
-        elif is_left_click(landmark_list,  thumb_index_dist):
+        elif is_left_click(landmark_list, thumb_index_dist):
             mouse.press(Button.left)
             mouse.release(Button.left)
             cv2.putText(frame, "Left Click", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
