@@ -34,3 +34,6 @@ def latest_news_summary(category="all", max_items=5):
     for idx, article in enumerate(articles, start=1):
         lines.append(f"{idx}. {article['title']}\n   {article['content']}")
     return "\n\n".join(lines)
+
+if __name__ == "__main__":
+    print(latest_news_summary(category="", max_items=3))
