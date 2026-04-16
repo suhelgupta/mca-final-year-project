@@ -61,8 +61,6 @@ def speak(text, file_path=None):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     loop.run_until_complete(generate_speech(text, file_path))
-    
-speak("Hi, how are you?")
-speak("Hi, how are you?")
-speak("Hi, how are you?")
-speak("Hi, how are you?")
+
+if __name__ == "__main__":
+    speak("Hi, how are you?")

@@ -1,3 +1,26 @@
+import ssl
+import requests
+# Disable SSL verification globally to handle self-signed certificates in corporate networks
+_original_create_default_context = ssl.create_default_context
+
+def _patched_create_default_context(*args, **kwargs):
+    ctx = _original_create_default_context(*args, **kwargs)
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    return ctx
+
+ssl.create_default_context = _patched_create_default_context
+
+# Also patch requests to disable SSL verification
+_original_request = requests.Session.request
+def _patched_request(self, method, url, **kwargs):
+    kwargs.setdefault('verify', False)
+    return _original_request(self, method, url, **kwargs)
+requests.Session.request = _patched_request
+
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 import pywhatkit
 import time
 
