@@ -58,8 +58,6 @@ System Monitoring (CPU, RAM, battery, disk)
 
 File Management (search, organize, open)
 
-Clipboard Manager (store/retrieve snippets)
-
 Multilingual Support (English + Hindi/Telugu)
 
 Smart File Search (OCR for images, read PDF/Word)
