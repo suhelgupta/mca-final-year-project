@@ -389,7 +389,7 @@ def _handle_greet(user_input: str, session: dict) -> BrainResult:
     session.update(_new_session())
     return BrainResult(
         message=(
-            "Hello! I am Folter Assistant.\n"
+            "Hello! I am Optima Assistant.\n"
             "I can help you with:\n"
             "  • news  • weather  • wikipedia  • email\n"
             "  • whatsapp  • reminder  • alarm  • birthday\n"

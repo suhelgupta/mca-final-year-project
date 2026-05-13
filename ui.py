@@ -124,7 +124,7 @@ class ProcessingDots(tk.Label):
 class AuthWindow(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Folter Assistant — Authentication")
+        self.title("Optima Assistant — Authentication")
         self.configure(bg=BG)
         self.resizable(False, False)
         self._center(520, 600)
@@ -145,7 +145,7 @@ class AuthWindow(tk.Tk):
         bar.pack(fill="x")
 
         # Title
-        tk.Label(self, text="◈  FOLTER ASSISTANT  ◈",
+        tk.Label(self, text="◈  OPTIMA ASSISTANT  ◈",
                  bg=BG, fg=CYAN,
                  font=("Consolas", 18, "bold")).pack(pady=(28, 2))
         tk.Label(self, text="SECURE ACCESS TERMINAL",
@@ -237,7 +237,7 @@ class AuthWindow(tk.Tk):
 class ChatWindow(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Folter Assistant — Chat Interface")
+        self.title("Optima Assistant — Chat Interface")
         self.configure(bg=BG)
         self._center(860, 680)
         self.minsize(700, 500)
@@ -267,7 +267,7 @@ class ChatWindow(tk.Tk):
 
         tk.Label(top, text="◈", bg=PANEL, fg=CYAN,
                  font=("Consolas", 16)).pack(side="left", padx=(16, 4), pady=12)
-        tk.Label(top, text="FOLTER ASSISTANT", bg=PANEL, fg=CYAN,
+        tk.Label(top, text="OPTIMA ASSISTANT", bg=PANEL, fg=CYAN,
                  font=("Consolas", 14, "bold")).pack(side="left", pady=12)
         tk.Label(top, text="v1.0  |  AI CHAT TERMINAL", bg=PANEL, fg=GREY,
                  font=("Consolas", 9)).pack(side="left", padx=12, pady=16)
