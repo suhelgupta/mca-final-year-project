@@ -243,6 +243,7 @@ class ChatWindow(tk.Tk):
         self.minsize(700, 500)
         self._speak_var  = tk.BooleanVar(value=True)
         self._mic_active = False
+        self._mic_stop_event = threading.Event()  
         self._session    = {}          # brain conversation state
         self._build()
         self._greet()
@@ -284,6 +285,7 @@ class ChatWindow(tk.Tk):
         chat_frame = tk.Frame(self, bg=BG2)
         chat_frame.pack(fill="both", expand=True, padx=12, pady=8)
 
+        # In _build(), after creating self._chat_box, add:
         self._chat_box = tk.Text(
             chat_frame,
             bg=BG2, fg=WHITE,
@@ -295,6 +297,7 @@ class ChatWindow(tk.Tk):
             spacing1=4, spacing3=4,
             insertbackground=CYAN,
             selectbackground=BORDER,
+            height=10,          # ← ADD THIS — minimum visible lines
         )
         scrollbar = tk.Scrollbar(chat_frame, command=self._chat_box.yview,
                                  bg=PANEL, troughcolor=BG2,
@@ -393,9 +396,17 @@ class ChatWindow(tk.Tk):
 
     def _on_mic(self):
         if self._mic_active:
-            return                          # already listening
+            # Second click → cancel listening
+            self._mic_stop_event.set()
+            self._mic_btn.config(bg=BG2, fg=CYAN, text="🎤")
+            self._append("Listening cancelled.", tag="system")
+            self._mic_active = False
+            return
+
+        # First click → start listening
         self._mic_active = True
-        self._mic_btn.config(bg=PURPLE, fg=WHITE, text="🎙")
+        self._mic_stop_event.clear()          # reset the stop flag
+        self._mic_btn.config(bg=PURPLE, fg=WHITE, text="🎙  ✕")   # shows clickable stop
         self._append("Listening…", tag="system")
         run_in_thread(self._do_listen)
 
@@ -403,10 +414,23 @@ class ChatWindow(tk.Tk):
         text = ""
         try:
             from Helpers.listern import listen
-            text = listen() or ""
+            # Pass the stop event so listen() can respect it
+            text = listen(stop_event=self._mic_stop_event) or ""
+        except TypeError:
+            # If your listen() doesn't support stop_event yet, fall back
+            try:
+                from Helpers.listern import listen
+                text = listen() or ""
+            except Exception as e:
+                print(f"Listen error: {e}")
         except Exception as e:
             print(f"Listen error: {e}")
-        self.after(0, self._mic_done, text)
+
+        # Only show result if not cancelled
+        if not self._mic_stop_event.is_set():
+            self.after(0, self._mic_done, text)
+        else:
+            self._mic_active = False   # already handled in _on_mic
 
     def _mic_done(self, text: str):
         self._mic_active = False
@@ -417,8 +441,7 @@ class ChatWindow(tk.Tk):
             self._on_send()
         else:
             self._append("Could not hear anything. Please try again.", tag="error")
-
-    # ------------------------------------------------------------------
+        # ------------------------------------------------------------------
     # Send → brain
     # ------------------------------------------------------------------
 
@@ -470,15 +493,23 @@ class ChatWindow(tk.Tk):
         self._input.config(state="normal")
         self._send_btn.config(state="normal")
         self._mic_btn.config(state="normal")
-        # update placeholder hint via the entry text colour trick
+
         self._input.config(fg=GREY)
         self._input.delete(0, "end")
         self._input.insert(0, placeholder)
-        self._input.bind("<FocusIn>",  self._clear_hint)
-        self._input.bind("<FocusOut>", lambda e: None)
+
+        # ← CHANGE: use <Key> instead of <FocusIn>
+        self._input.bind("<Key>", self._clear_hint)
         self._input.focus()
 
     def _clear_hint(self, event=None):
+        # Ignore modifier-only keys (Shift, Ctrl, Alt, etc.)
+        if event and event.keysym in ("Shift_L", "Shift_R", "Control_L",
+                                    "Control_R", "Alt_L", "Alt_R", "Caps_Lock"):
+            return
+        self._input.config(fg=WHITE)
+        self._input.delete(0, "end")
+        self._input.unbind("<Key>")
         self._input.config(fg=WHITE)
         self._input.delete(0, "end")
         self._input.unbind("<FocusIn>")
@@ -500,7 +531,9 @@ class ChatWindow(tk.Tk):
 # ---------------------------------------------------------------------------
 
 def launch():
-    app = AuthWindow()
+    # app = AuthWindow()
+    # app.mainloop()
+    app = ChatWindow()
     app.mainloop()
 
 

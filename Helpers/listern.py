@@ -11,12 +11,6 @@ from colorama import Fore, Style, init    # pip install colorama
 init(autoreset=True)  # Automatically reset styles after each print
 
 # Function to listen for speech
-def print_loop():                                   # For Printing In loop
-    while True:
-        print(Fore.GREEN + "Listening....", end='', flush=True)
-        print(Style.RESET_ALL, end='', flush=True)
-        print("", end='', flush=True)
-
 # def translation_hin_to_eng(text):                   # translate the text in to hindi to english
 #     english_translation = translate(text, 'en-in')
 #     return english_translation
@@ -54,10 +48,9 @@ def listen():                             # listen function
                 os.system('cls' if os.name == 'nt' else 'clear')
             listen_thread = threading.Thread(target=listen)
             listen_thread.start()
-            print_thread = threading.Thread(target=print_loop)
-            print_thread.start()
-
+            
             listen_thread.join()
-            print_thread.join()
 
-listen()
+
+if __name__ == "__main__":
+    listen()

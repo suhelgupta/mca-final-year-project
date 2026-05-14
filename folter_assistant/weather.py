@@ -40,3 +40,7 @@ def get_weather_summary(location="New York"):
         f"{weather['condition']} with {weather['temperature_c']}°C (feels like {weather['feels_like_c']}°C). "
         f"Humidity {weather['humidity']}%, wind {weather['wind_kph']} km/h."
     )
+
+if __name__ == "__main__":
+    print(get_weather_summary("Mumbai"))
+    print(get_weather_summary("New York"))
