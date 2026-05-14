@@ -65,5 +65,12 @@
     "remind_at": "2026-05-15T14:26:00",
     "recurrence": "daily",
     "done": false
+  },
+  {
+    "id": 1778763149642,
+    "text": "prepare",
+    "remind_at": "2026-05-14T18:23:00",
+    "recurrence": "none",
+    "done": true
   }
 ]
