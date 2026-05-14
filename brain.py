@@ -23,7 +23,7 @@ Returns BrainResult (namedtuple):
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
-import os, sys
+import os, sys, subprocess, webbrowser
 
 # ---------------------------------------------------------------------------
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'face-recognition'))
@@ -52,6 +52,49 @@ def _new_session() -> dict:
 
 def _contains(text: str, *words) -> bool:
     return any(w in text for w in words)
+
+
+def _open_with_chrome(url: str | None = None) -> bool:
+    if url is None:
+        url = "https://www.google.com"
+    try:
+        subprocess.Popen(["chrome", url], shell=False)
+        return True
+    except Exception:
+        try:
+            webbrowser.open(url)
+            return True
+        except Exception:
+            return False
+
+
+def _launch_vscode() -> bool:
+    candidates = [
+        ["code"],
+        [os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "Microsoft VS Code", "Code.exe")],
+        ["C:\\Program Files\\Microsoft VS Code\\Code.exe"],
+        ["C:\\Program Files (x86)\\Microsoft VS Code\\Code.exe"],
+    ]
+    for cmd in candidates:
+        if not cmd[0]:
+            continue
+        try:
+            subprocess.Popen(cmd, shell=False)
+            return True
+        except Exception:
+            continue
+    return False
+
+
+def _launch_hand_gesture() -> bool:
+    script_path = os.path.join(os.path.dirname(__file__), "hand-guesture", "hand-guesture.py")
+    if not os.path.exists(script_path):
+        return False
+    try:
+        subprocess.Popen([sys.executable, script_path], shell=False)
+        return True
+    except Exception:
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -199,20 +242,18 @@ def _handle_wikipedia(user_input: str, session: dict) -> BrainResult:
 # ── EMAIL ────────────────────────────────────────────────────────────────────
 
 _EMAIL_FIELDS = [
-    ("to",       "Recipient email address?",           "recipient@example.com"),
-    ("subject",  "Email subject?",                     "Enter subject…"),
-    ("body",     "Email body? (type your message)",    "Enter message…"),
+    ("recipient", "Recipient email address or name?", "recipient@example.com or Alice"),
+    ("subject",   "Email subject?",                     "Enter subject…"),
+    ("body",      "Email body? (type your message)",    "Enter message…"),
 ]
 
 def _handle_email(user_input: str, session: dict) -> BrainResult:
     step  = session.get("step", 0)
     data  = session.setdefault("data", {})
-    keys  = [f[0] for f in _EMAIL_FIELDS]
 
-    # step 0 → just announce we're collecting
     if step == 0:
         session["step"] = 1
-        key, prompt, hint = _EMAIL_FIELDS[0]
+        _, prompt, hint = _EMAIL_FIELDS[0]
         return BrainResult(
             message=f"Sure! Let's compose an email.\n{prompt}",
             needs_input=True,
@@ -220,13 +261,28 @@ def _handle_email(user_input: str, session: dict) -> BrainResult:
             done=False,
         )
 
-    # steps 1‥len(fields) → collect each field
     field_idx = step - 1
     if field_idx < len(_EMAIL_FIELDS):
         key = _EMAIL_FIELDS[field_idx][0]
-        data[key] = user_input.strip()
+        if key == "recipient":
+            from folter_assistant.contacts import ContactBook
+            contact_book = ContactBook()
+            resolved = contact_book.resolve_email(user_input.strip())
+            if not resolved:
+                return BrainResult(
+                    message=(
+                        "I could not resolve that recipient. "
+                        "Please enter a valid email address or the contact name from contacts.json."
+                    ),
+                    needs_input=True,
+                    input_hint="recipient@example.com or Alice",
+                    done=False,
+                )
+            data["to"] = resolved
+        else:
+            data[key] = user_input.strip()
 
-    next_idx = step   # after storing, next field index = step
+    next_idx = step
     if next_idx < len(_EMAIL_FIELDS):
         _, prompt, hint = _EMAIL_FIELDS[next_idx]
         session["step"] = step + 1
@@ -237,15 +293,14 @@ def _handle_email(user_input: str, session: dict) -> BrainResult:
             done=False,
         )
 
-    # All fields collected → send
     try:
         from folter_assistant.send_email import send_email
         send_email(
-            smtp_server   = "smtp.gmail.com",
-            smtp_port     = 587,
-            recipient_email = data["to"],
-            subject       = data["subject"],
-            body          = data["body"],
+            smtp_server      = "smtp.gmail.com",
+            smtp_port        = 587,
+            recipient_email  = data["to"],
+            subject          = data["subject"],
+            body             = data["body"],
         )
         msg = f"✔ Email sent successfully to {data['to']}!"
     except Exception as e:
@@ -257,8 +312,8 @@ def _handle_email(user_input: str, session: dict) -> BrainResult:
 # ── WHATSAPP ─────────────────────────────────────────────────────────────────
 
 _WA_FIELDS = [
-    ("phone",   "Recipient phone number? (with country code, e.g. +91XXXXXXXXXX)", "+91…"),
-    ("message", "Message to send?",                                                "Type message…"),
+    ("recipient", "Recipient phone number or name? (with country code, e.g. +91XXXXXXXXXX)", "+91… or Alice"),
+    ("message",   "Message to send?",                                               "Type message…"),
 ]
 
 def _handle_whatsapp(user_input: str, session: dict) -> BrainResult:
@@ -278,7 +333,23 @@ def _handle_whatsapp(user_input: str, session: dict) -> BrainResult:
     field_idx = step - 1
     if field_idx < len(_WA_FIELDS):
         key = _WA_FIELDS[field_idx][0]
-        data[key] = user_input.strip()
+        if key == "recipient":
+            from folter_assistant.contacts import ContactBook
+            contact_book = ContactBook()
+            resolved = contact_book.resolve_phone(user_input.strip())
+            if not resolved:
+                return BrainResult(
+                    message=(
+                        "I could not resolve that recipient. "
+                        "Please enter a valid phone number or the contact name from contacts.json."
+                    ),
+                    needs_input=True,
+                    input_hint="+91XXXXXXXXXX or Alice",
+                    done=False,
+                )
+            data["phone"] = resolved
+        else:
+            data[key] = user_input.strip()
 
     next_idx = step
     if next_idx < len(_WA_FIELDS):
@@ -301,6 +372,7 @@ def _handle_whatsapp(user_input: str, session: dict) -> BrainResult:
 _REM_FIELDS = [
     ("task", "What should I remind you about?",         "Enter task…"),
     ("time", "At what date/time? (e.g. 2026-04-17 10:00)", "YYYY-MM-DD HH:MM"),
+    ("recurrence", "Recurrence? (none/daily/weekly/monthly)", "none"),
 ]
 
 def _handle_reminder(user_input: str, session: dict) -> BrainResult:
@@ -347,51 +419,27 @@ def _handle_reminder(user_input: str, session: dict) -> BrainResult:
 
     if step == 2:
         data["time"] = user_input.strip()
+        session["step"] = 3
+        return BrainResult(
+            message=f"Got time: {data['time']}\nRecurrence? (none/daily/weekly/monthly, default none)",
+            needs_input=True, input_hint="none/daily/weekly/monthly", done=False,
+        )
+
+    if step == 3:
+        recurrence = user_input.strip().lower()
+        if recurrence not in ["none", "daily", "weekly", "monthly"]:
+            recurrence = "none"
+        data["recurrence"] = recurrence
         session["step"] = 10
 
     try:
         from folter_assistant.reminder import ReminderManager
         rm = ReminderManager()
-        rm.add_reminder(data["task"], data["time"])
-        msg = f"✔ Reminder set: '{data['task']}' at {data['time']}"
+        rm.add_reminder(data["task"], data["time"], data.get("recurrence", "none"))
+        rec = data.get("recurrence", "none")
+        msg = f"✔ Reminder set: '{data['task']}' at {data['time']}" + (f" ({rec})" if rec != "none" else "")
     except Exception as e:
         msg = f"Could not set reminder: {e}"
-    session.update(_new_session())
-    return BrainResult(message=msg, done=True)
-
-
-# ── ALARM ────────────────────────────────────────────────────────────────────
-
-def _handle_alarm(user_input: str, session: dict) -> BrainResult:
-    step = session.get("step", 0)
-    data = session.setdefault("data", {})
-
-    if step == 0:
-        q = user_input
-        time_str = None
-        if " at " in q:
-            time_str = q.split(" at ", 1)[1].strip()
-        if time_str:
-            data["time"] = time_str
-            session["step"] = 10
-        else:
-            session["step"] = 1
-            return BrainResult(
-                message="At what time should I set the alarm? (e.g. 07:30 AM)",
-                needs_input=True, input_hint="HH:MM AM/PM", done=False,
-            )
-
-    if step == 1:
-        data["time"] = user_input.strip()
-        session["step"] = 10
-
-    try:
-        from folter_assistant.alarm import AlarmManager
-        am = AlarmManager()
-        am.add_alarm(data["time"])
-        msg = f"✔ Alarm set for {data['time']}"
-    except Exception as e:
-        msg = f"Could not set alarm: {e}"
     session.update(_new_session())
     return BrainResult(message=msg, done=True)
 
@@ -399,19 +447,95 @@ def _handle_alarm(user_input: str, session: dict) -> BrainResult:
 # ── BIRTHDAY ─────────────────────────────────────────────────────────────────
 
 def _handle_birthday(user_input: str, session: dict) -> BrainResult:
+    step = session.get("step", 0)
+    data = session.setdefault("data", {})
+    text = user_input.strip()
+
     try:
         from folter_assistant.birthday import BirthdayManager
         bm = BirthdayManager()
-        upcoming = bm.get_upcoming_birthdays()
+    except Exception as e:
+        session.update(_new_session())
+        return BrainResult(message=f"Birthday handler failed: {e}", done=True)
+
+    if step == 0:
+        if any(keyword in text for keyword in ["add birthday", "add bithday", "new birthday", "new bithday", "remember birthday", "birthday add", "create birthday"]):
+            # Direct parse: "add birthday for John on 2026-05-20"
+            # or "add birthday on 17 sep for John"
+            name = None
+            date_text = None
+            if " on " in text and " for " in text:
+                try:
+                    if text.index(" for ") < text.index(" on "):
+                        name = text.split(" for ", 1)[1].split(" on ", 1)[0].strip()
+                        date_text = text.split(" on ", 1)[1].strip()
+                    else:
+                        date_text = text.split(" on ", 1)[1].split(" for ", 1)[0].strip()
+                        name = text.split(" for ", 1)[1].strip()
+                except Exception:
+                    name = None
+                    date_text = None
+            if name and date_text:
+                try:
+                    bm.add_birthday(name, date_text, note="")
+                    session.update(_new_session())
+                    return BrainResult(message=f"✔ Birthday saved for {name} on {date_text}", done=True)
+                except Exception as e:
+                    session.update(_new_session())
+                    return BrainResult(message=f"Could not save birthday: {e}", done=True)
+
+            session["step"] = 1
+            return BrainResult(
+                message="Who is the birthday for?",
+                needs_input=True,
+                input_hint="Name…",
+                done=False,
+            )
+
+        # Default birthday query: list upcoming birthdays
+        upcoming = bm.upcoming_birthdays()
         if upcoming:
-            lines = [f"  • {b}" for b in upcoming]
+            lines = [f"  • {b['name']} — in {b['in_days']} days ({b['date']})" for b in upcoming]
             msg = "Upcoming Birthdays:\n" + "\n".join(lines)
         else:
             msg = "No upcoming birthdays found."
-    except Exception as e:
-        msg = f"Birthday lookup failed: {e}"
+        session.update(_new_session())
+        return BrainResult(message=msg, done=True)
+
+    if step == 1:
+        data["name"] = text.strip().title()
+        session["step"] = 2
+        return BrainResult(
+            message="What is the birthday date? (YYYY-MM-DD or DD/MM/YYYY)",
+            needs_input=True,
+            input_hint="Date…",
+            done=False,
+        )
+
+    if step == 2:
+        data["date"] = text.strip()
+        session["step"] = 3
+        return BrainResult(
+            message="Any note or reminder for this birthday? (optional, type skip to omit)",
+            needs_input=True,
+            input_hint="Note or skip…",
+            done=False,
+        )
+
+    if step == 3:
+        note_text = text.strip()
+        if note_text.lower() in ["skip", "none", ""]:
+            note_text = ""
+        try:
+            bm.add_birthday(data["name"], data["date"], note=note_text)
+            msg = f"✔ Birthday saved for {data['name']} on {data['date']}"
+        except Exception as e:
+            msg = f"Could not save birthday: {e}"
+        session.update(_new_session())
+        return BrainResult(message=msg, done=True)
+
     session.update(_new_session())
-    return BrainResult(message=msg, done=True)
+    return BrainResult(message="No birthday action recognised.", done=True)
 
 
 # ── GREET / HELP / BYE ───────────────────────────────────────────────────────
@@ -423,7 +547,8 @@ def _handle_greet(user_input: str, session: dict) -> BrainResult:
             "Hello! I am Optima Assistant.\n"
             "I can help you with:\n"
             "  • news  • weather  • wikipedia  • email\n"
-            "  • whatsapp  • reminder  • alarm  • birthday\n"
+            "  • whatsapp  • reminder  • birthdays\n"
+            "  • add birthday  • open hand gesture  • recommend\n"
             "Just tell me what you need!"
         ),
         done=True,
@@ -434,18 +559,85 @@ def _handle_help(user_input: str, session: dict) -> BrainResult:
     return BrainResult(
         message=(
             "Available commands:\n"
-            "  news            — Latest headlines\n"
-            "  weather [city]  — Weather info\n"
-            "  search <topic>  — Wikipedia search\n"
-            "  send email      — Compose & send an email\n"
-            "  send whatsapp   — Send a WhatsApp message\n"
-            "  remind me       — Set a reminder\n"
-            "  set alarm       — Set an alarm\n"
-            "  birthdays       — Upcoming birthdays\n"
-            "  bye / exit      — Quit the assistant"
+            "  news                — Latest headlines\n"
+            "  weather [city]      — Weather info\n"
+            "  search <topic>      — Wikipedia search\n"
+            "  send email          — Compose & send an email\n"
+            "  send whatsapp       — Send a WhatsApp message\n"
+            "  remind me           — Set a reminder\n"
+            "  birthdays           — Show upcoming birthdays\n"
+            "  add birthday        — Save a new birthday\n"
+            "  open hand gesture   — Launch the hand gesture module\n"
+            "  recommend           — Get a recommendation\n"
+            "  set profile         — Update preferences or profile info\n"
+            "  help                — Show this help list\n"
+            "  bye / exit          — Quit the assistant"
         ),
         done=True,
     )
+
+def _handle_open(user_input: str, session: dict) -> BrainResult:
+    text = user_input.lower()
+
+    if any(phrase in text for phrase in ["hand gesture", "hand guesture", "gesture"]):
+        if _launch_hand_gesture():
+            session.update(_new_session())
+            return BrainResult(message="✔ Launching hand gesture module...", done=True)
+        return BrainResult(message="Could not launch the hand gesture module.", done=True)
+
+    if "youtube" in text:
+        ok = _open_with_chrome("https://www.youtube.com")
+        return BrainResult(message="✔ Opening YouTube in browser." if ok else "Could not open YouTube.", done=True)
+
+    if "instagram" in text:
+        ok = _open_with_chrome("https://www.instagram.com")
+        return BrainResult(message="✔ Opening Instagram in browser." if ok else "Could not open Instagram.", done=True)
+
+    if any(term in text for term in ["chrome", "browser"]):
+        ok = _open_with_chrome()
+        return BrainResult(message="✔ Opening Chrome browser." if ok else "Could not open Chrome.", done=True)
+
+    if any(term in text for term in ["vs code", "vscode", "visual studio code"]):
+        ok = _launch_vscode()
+        return BrainResult(message="✔ Opening VS Code." if ok else "Could not open VS Code.", done=True)
+
+    if "notepad" in text:
+        try:
+            subprocess.Popen(["notepad"], shell=False)
+            return BrainResult(message="✔ Opening Notepad.", done=True)
+        except Exception as e:
+            return BrainResult(message=f"Could not open Notepad: {e}", done=True)
+
+    if "control panel" in text:
+        try:
+            subprocess.Popen(["control"], shell=False)
+            return BrainResult(message="✔ Opening Control Panel.", done=True)
+        except Exception as e:
+            return BrainResult(message=f"Could not open Control Panel: {e}", done=True)
+
+    if "settings" in text:
+        try:
+            os.startfile("ms-settings:")
+            return BrainResult(message="✔ Opening Windows Settings.", done=True)
+        except Exception as e:
+            return BrainResult(message=f"Could not open Settings: {e}", done=True)
+
+    if "environment" in text or "env" in text or "environment variable" in text:
+        try:
+            subprocess.Popen(["rundll32.exe", "sysdm.cpl,EditEnvironmentVariables"], shell=False)
+            return BrainResult(message="✔ Opening Environment Variables.", done=True)
+        except Exception as e:
+            return BrainResult(message=f"Could not open Environment Variables: {e}", done=True)
+
+    session.update(_new_session())
+    return BrainResult(
+        message=(
+            "I can open hand gesture, Chrome, VS Code, Notepad, Control Panel, "
+            "Settings, Environment Variables, YouTube, or Instagram."
+        ),
+        done=True,
+    )
+
 
 def _handle_bye(user_input: str, session: dict) -> BrainResult:
     session.update(_new_session())
@@ -682,8 +874,8 @@ _INTENT_MAP = [
     ("wikipedia", ["wikipedia", "wiki", "what is", "who is",
                    "tell me about", "search for", "search"]),
     ("reminder",  ["remind", "reminder", "remind me"]),
-    ("alarm",     ["alarm", "wake me", "wake up", "set alarm"]),
-    ("birthday",  ["birthday", "birthdays"]),
+    ("birthday",  ["birthday", "birthdays", "bithday", "bithdays", "add birthday", "add bithday", "new birthday", "new bithday"]),
+    ("open",      ["open hand gesture", "hand gesture", "open hand guesture", "hand guesture", "gesture", "open chrome", "open vs code", "open vscode", "open notepad", "open control panel", "open settings", "open environment", "open environment variable", "open youtube", "open instagram"]),
     ("bye",       ["bye", "exit", "quit", "goodbye", "close"]),
     ("help",      ["help", "what can you do", "features", "commands"]),
     ("greet",     ["hello", "hi", "hey", "how are you", "good morning",
@@ -703,8 +895,8 @@ _HANDLERS = {
     "news":      _handle_news,
     "wikipedia": _handle_wikipedia,
     "reminder":  _handle_reminder,
-    "alarm":     _handle_alarm,
     "birthday":  _handle_birthday,
+    "open":      _handle_open,
     "bye":       _handle_bye,
     "help":      _handle_help,
     "greet":     _handle_greet,

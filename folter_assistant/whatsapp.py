@@ -69,3 +69,11 @@ def send_whatsapp_message_instant(phone_number, message):
         return {"status": "success", "message": "Message sent instantly"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+
+if __name__ == "__main__":
+    # Example usage
+    phone = "+917977737042"  # Replace with target phone number
+    msg = "Hello from Folter Assistant!"
+    result = send_whatsapp_message_instant(phone, msg)
+    print(result)

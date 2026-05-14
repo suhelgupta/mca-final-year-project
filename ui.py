@@ -5,6 +5,7 @@ import tkinter as tk
 from tkinter import font as tkfont
 import time
 import math
+import datetime
 
 # ---------------------------------------------------------------------------
 # Path setup
@@ -246,7 +247,9 @@ class ChatWindow(tk.Tk):
         self._mic_stop_event = threading.Event()  
         self._session    = {}          # brain conversation state
         self._build()
+        self._last_birthday_notify_date = None
         self._greet()
+        self.after(5000, self._check_time_based_notifications)
 
     def _center(self, w, h):
         self.update_idletasks()
@@ -517,6 +520,135 @@ class ChatWindow(tk.Tk):
     # ------------------------------------------------------------------
     # Speak
     # ------------------------------------------------------------------
+
+    def _show_native_notification(self, title, message, duration=6000):
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            class NOTIFYICONDATA(ctypes.Structure):
+                _fields_ = [
+                    ("cbSize", wintypes.DWORD),
+                    ("hWnd", wintypes.HWND),
+                    ("uID", wintypes.UINT),
+                    ("uFlags", wintypes.UINT),
+                    ("uCallbackMessage", wintypes.UINT),
+                    ("hIcon", wintypes.HICON),
+                    ("szTip", wintypes.WCHAR * 128),
+                    ("dwState", wintypes.DWORD),
+                    ("dwStateMask", wintypes.DWORD),
+                    ("szInfo", wintypes.WCHAR * 256),
+                    ("uTimeoutOrVersion", wintypes.UINT),
+                    ("szInfoTitle", wintypes.WCHAR * 64),
+                    ("dwInfoFlags", wintypes.DWORD),
+                    ("guidItem", ctypes.c_byte * 16),
+                    ("hBalloonIcon", wintypes.HICON),
+                ]
+
+            NIF_INFO = 0x00000010
+            NIF_ICON = 0x00000002
+            NIF_MESSAGE = 0x00000001
+            NIM_ADD = 0x00000000
+            NIM_MODIFY = 0x00000001
+            NIM_DELETE = 0x00000002
+            NIIF_INFO = 0x00000001
+
+            nid = NOTIFYICONDATA()
+            nid.cbSize = ctypes.sizeof(nid)
+            nid.hWnd = wintypes.HWND(self.winfo_id())
+            nid.uID = 1
+            nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_INFO
+            nid.uCallbackMessage = 0
+            nid.hIcon = ctypes.windll.user32.LoadIconW(None, 32512)
+            nid.szTip = "Optima Assistant"
+            nid.szInfo = message[:255]
+            nid.uTimeoutOrVersion = duration
+            nid.szInfoTitle = title[:63]
+            nid.dwInfoFlags = NIIF_INFO
+
+            shell32 = ctypes.windll.shell32
+            shell32.Shell_NotifyIconW(NIM_ADD, ctypes.byref(nid))
+            shell32.Shell_NotifyIconW(NIM_MODIFY, ctypes.byref(nid))
+
+            def cleanup():
+                try:
+                    shell32.Shell_NotifyIconW(NIM_DELETE, ctypes.byref(nid))
+                except Exception:
+                    pass
+
+            self.after(duration + 1000, cleanup)
+        except Exception as e:
+            print(f"Native notification failed: {e}")
+
+    def _show_toast_notification(self, title, message, duration=6000):
+        self._show_native_notification(title, message, duration)
+        try:
+            toast = tk.Toplevel(self)
+            toast.overrideredirect(True)
+            toast.attributes("-topmost", True)
+            toast.configure(bg=BG2)
+
+            width = 320
+            height = 100
+            try:
+                x = self.winfo_x() + self.winfo_width() - width - 16
+                y = self.winfo_y() + 60
+            except Exception:
+                x = 100
+                y = 100
+            toast.geometry(f"{width}x{height}+{x}+{y}")
+
+            tk.Label(toast, text=title, bg=BG2, fg=CYAN,
+                     font=("Consolas", 10, "bold"), anchor="w").pack(fill="x", padx=12, pady=(10, 0))
+            tk.Label(toast, text=message, bg=BG2, fg=WHITE,
+                     font=("Consolas", 9), justify="left", wraplength=296).pack(fill="both", padx=12, pady=(4, 12))
+
+            toast.after(duration, toast.destroy)
+        except Exception as e:
+            print(f"Toast notification failed: {e}")
+
+    def _check_time_based_notifications(self):
+        print("Checking for notifications...")
+        try:
+            from folter_assistant.reminder import ReminderManager
+            rm = ReminderManager()
+            due = rm.due_reminders()
+            print(f"Due reminders: {len(due)}")
+            for reminder in due:
+                text = reminder.get("text", "Reminder")
+                when = reminder.get("remind_at", "")
+                title = "Reminder"
+                body = f"{text}\n⏰ {when}"
+                self._show_toast_notification(title, body)
+                self._append(body, tag="system", prefix="◉ Reminder:  ")
+                if self._speak_var.get():
+                    run_in_thread(self._speak_text, f"Reminder: {text}")
+                rm.mark_done(reminder["id"])
+        except Exception as e:
+            print(f"Reminder notification error: {e}")
+
+        try:
+            from folter_assistant.birthday import BirthdayManager
+            bm = BirthdayManager()
+            today_birthdays = bm.today_birthdays()
+            today = datetime.date.today()
+            if today_birthdays and self._last_birthday_notify_date != today:
+                self._last_birthday_notify_date = today
+                for birthday in today_birthdays:
+                    name = birthday.get("name", "Someone")
+                    note = birthday.get("note", "")
+                    title = "Birthday Reminder"
+                    body = f"Today is {name}'s birthday."
+                    if note:
+                        body += f"\n{note}"
+                    self._show_toast_notification(title, body)
+                    self._append(body, tag="system", prefix="◉ Birthday:  ")
+                    if self._speak_var.get():
+                        run_in_thread(self._speak_text, f"Today is {name}'s birthday.")
+        except Exception as e:
+            print(f"Birthday notification error: {e}")
+
+        self.after(30000, self._check_time_based_notifications)
 
     def _speak_text(self, text):
         try:

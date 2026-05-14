@@ -11,12 +11,13 @@ class ReminderManager:
     def _save(self):
         save_json(self.FILE_NAME, self.reminders)
 
-    def add_reminder(self, text, remind_at):
+    def add_reminder(self, text, remind_at, recurrence="none"):
         remind_at = self._parse_datetime(remind_at)
         reminder = {
             "id": int(datetime.datetime.now().timestamp() * 1000),
             "text": text,
             "remind_at": remind_at.isoformat(),
+            "recurrence": recurrence,  # "none", "daily", "weekly", "monthly"
             "done": False,
         }
         self.reminders.append(reminder)
@@ -33,7 +34,23 @@ class ReminderManager:
     def mark_done(self, reminder_id):
         for reminder in self.reminders:
             if reminder.get("id") == reminder_id:
-                reminder["done"] = True
+                recurrence = reminder.get("recurrence", "none")
+                if recurrence == "none":
+                    reminder["done"] = True
+                else:
+                    # Update next remind_at
+                    remind_at = datetime.datetime.fromisoformat(reminder["remind_at"])
+                    if recurrence == "daily":
+                        remind_at += datetime.timedelta(days=1)
+                    elif recurrence == "weekly":
+                        remind_at += datetime.timedelta(weeks=1)
+                    elif recurrence == "monthly":
+                        # Add one month
+                        if remind_at.month == 12:
+                            remind_at = remind_at.replace(year=remind_at.year + 1, month=1)
+                        else:
+                            remind_at = remind_at.replace(month=remind_at.month + 1)
+                    reminder["remind_at"] = remind_at.isoformat()
                 self._save()
                 return reminder
         return None

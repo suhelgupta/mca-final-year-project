@@ -3,6 +3,67 @@
     "id": 1777620792935,
     "text": "reminder me i have to submit my project",
     "remind_at": "2026-04-17T18:00:00",
+    "done": true
+  },
+  {
+    "id": 1778740418285,
+    "text": "drink water",
+    "remind_at": "2026-05-14T12:05:00",
+    "done": true
+  },
+  {
+    "id": 1778741498598,
+    "text": "drink water",
+    "remind_at": "2026-05-14T12:22:00",
+    "done": true
+  },
+  {
+    "id": 1778741600631,
+    "text": "drink water",
+    "remind_at": "2026-05-14T12:24:00",
+    "done": true
+  },
+  {
+    "id": 1778742610881,
+    "text": "open vs code",
+    "remind_at": "2026-05-26T12:41:00",
+    "done": false
+  },
+  {
+    "id": 1778742918983,
+    "text": "vs code",
+    "remind_at": "2026-05-26T12:46:00",
+    "done": false
+  },
+  {
+    "id": 1778743341947,
+    "text": "test reminder",
+    "remind_at": "2026-05-14T12:00:00",
+    "done": true
+  },
+  {
+    "id": 1778743504379,
+    "text": "test reminder now",
+    "remind_at": "2026-05-14T12:55:00",
+    "done": true
+  },
+  {
+    "id": 1778743531566,
+    "text": "past reminder",
+    "remind_at": "2026-05-14T12:50:00",
+    "done": true
+  },
+  {
+    "id": 1778743722699,
+    "text": "drink water",
+    "remind_at": "2026-05-14T01:00:00",
+    "done": true
+  },
+  {
+    "id": 1778750114318,
+    "text": "drink water",
+    "remind_at": "2026-05-15T14:26:00",
+    "recurrence": "daily",
     "done": false
   }
 ]
